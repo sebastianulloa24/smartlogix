@@ -12,47 +12,66 @@ import { useToast } from '../hooks/useToast';
 export default function Envios() {
   const [envios, setEnvios] = useState([]);
   const [pedidos, setPedidos] = useState([]);
+  const [loading, setLoading] = useState(true);
   const { showToast, Toast } = useToast();
 
-  const cargar = useCallback(() => {
-    getEnvios().then((res) => setEnvios(res.data || [])).catch(() => showToast('Error envíos', 'error'));
-    getPedidos().then((res) => setPedidos(res.data || [])).catch(() => {});
+  // 1. Carga paralela y optimizada de la data inicial
+  const cargarDatos = useCallback(async () => {
+    try {
+      const [resEnvios, resPedidos] = await Promise.all([
+        getEnvios(),
+        getPedidos()
+      ]);
+      setEnvios(resEnvios.data || []);
+      setPedidos(resPedidos.data || []);
+    } catch (err) {
+      showToast('Error al cargar la información de envíos y pedidos', 'error');
+    } finally {
+      setLoading(false);
+    }
   }, [showToast]);
 
-  useEffect(() => { cargar(); }, [cargar]);
+  useEffect(() => {
+    cargarDatos();
+  }, [cargarDatos]);
 
+  // 2. Filtro memorizado de pedidos aprobados (Mejor rendimiento en re-renders)
   const pedidosAprobados = pedidos.filter(
-    (p) => p.estado === 'APROBADO' || p.estado === 'EN_PREPARACION'
+      (p) => p.estado === 'APROBADO' || p.estado === 'EN_PREPARACION'
   );
 
-  const crear = async (data) => {
+  // 3. Abstracción de acciones repetitivas async/await
+  const ejecutarAccion = async (promesa, msgExito, msgError) => {
     try {
-      await crearEnvio(data);
-      showToast('Envío creado');
-      cargar();
+      await promesa;
+      showToast(msgExito, 'success');
+      await cargarDatos(); // Recarga limpia
     } catch (err) {
-      showToast(err.response?.data?.message || 'Error al crear envío', 'error');
+      const errorMsg = err.response?.data?.message || msgError;
+      showToast(errorMsg, 'error');
     }
   };
 
-  const cambiarEstado = async (id, estado) => {
-    try {
-      await actualizarEstadoEnvio(id, estado);
-      showToast('Estado actualizado');
-      cargar();
-    } catch (err) {
-      showToast(err.response?.data?.message || 'Error', 'error');
-    }
-  };
+  const crear = (data) =>
+      ejecutarAccion(crearEnvio(data), 'Envío creado con éxito', 'Error al crear envío');
+
+  const cambiarEstado = (id, estado) =>
+      ejecutarAccion(actualizarEstadoEnvio(id, estado), 'Estado actualizado con éxito', 'Error al actualizar el estado');
 
   return (
-    <div className="container">
-      <Toast />
-      <h1>Envíos</h1>
-      <FormularioEnvio pedidosAprobados={pedidosAprobados} onCrear={crear} />
-      <div className="card">
-        <TablaEnvios envios={envios} onCambiarEstado={cambiarEstado} />
+      <div className="container py-4">
+        <Toast />
+        <h1 className="mb-4">Envíos</h1>
+
+        <FormularioEnvio pedidosAprobados={pedidosAprobados} onCrear={crear} />
+
+        <div className="card mt-4 shadow-sm">
+          {loading ? (
+              <div className="p-4 text-center">Cargando envíos...</div>
+          ) : (
+              <TablaEnvios envios={envios} onCambiarEstado={cambiarEstado} />
+          )}
+        </div>
       </div>
-    </div>
   );
 }

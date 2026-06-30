@@ -6,15 +6,17 @@ import Inventario from './pages/Inventario';
 import Pedidos from './pages/Pedidos';
 
 export default function App() {
-  return (
-    <>
-      <Navbar />
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/inventario" element={<Inventario />} />
-        <Route path="/pedidos" element={<Pedidos />} />
-        <Route path="/envios" element={<Envios />} />
-      </Routes>
-    </>
-  );
+    return (
+        <>
+            <Navbar />
+            <main style={{ flex: 1, width: '100%' }}>
+                <Routes>
+                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/inventario" element={<Inventario />} />
+                    <Route path="/pedidos" element={<Pedidos />} />
+                    <Route path="/envios" element={<Envios />} />
+                </Routes>
+            </main>
+        </>
+    );
 }

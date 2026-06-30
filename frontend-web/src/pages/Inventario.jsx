@@ -16,8 +16,8 @@ export default function Inventario() {
 
   const cargar = useCallback(() => {
     getProductos()
-      .then((res) => setProductos(res.data || []))
-      .catch((err) => showToast(err.response?.data?.message || 'Error al cargar productos', 'error'));
+        .then((res) => setProductos(res.data || []))
+        .catch((err) => showToast(err.response?.data?.message || 'Error al cargar productos', 'error'));
   }, [showToast]);
 
   useEffect(() => { cargar(); }, [cargar]);
@@ -49,13 +49,27 @@ export default function Inventario() {
   };
 
   return (
-    <div className="container">
-      <Toast />
-      <h1>Inventario</h1>
-      <FormularioProducto productoEditar={editar} onGuardar={guardar} onCancelar={() => setEditar(null)} />
-      <div className="card">
-        <TablaProductos productos={productos} onEditar={setEditar} onEliminar={eliminar} />
+      <div className="container">
+        <Toast />
+
+        {/* Encabezado Principal Estilizado */}
+        <h1 style={{ marginBottom: '1.5rem', color: '#1a1a2e' }}>Control de Inventario</h1>
+
+        {/* Sección del Formulario (Se adapta usando tus estilos de .card internos) */}
+        <FormularioProducto
+            productoEditar={editar}
+            onGuardar={guardar}
+            onCancelar={() => setEditar(null)}
+        />
+
+        {/* Contenedor de la Tabla Estilo Card sin bordes extraños */}
+        <div className="card" style={{ padding: 0, overflow: 'hidden', marginTop: '1.5rem' }}>
+          <TablaProductos
+              productos={productos}
+              onEditar={setEditar}
+              onEliminar={eliminar}
+          />
+        </div>
       </div>
-    </div>
   );
 }
