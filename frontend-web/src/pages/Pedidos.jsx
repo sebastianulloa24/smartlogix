@@ -13,53 +13,88 @@ import { useToast } from '../hooks/useToast';
 export default function Pedidos() {
   const [pedidos, setPedidos] = useState([]);
   const [productos, setProductos] = useState([]);
+  const [loading, setLoading] = useState(true);
   const { showToast, Toast } = useToast();
 
-  const cargar = useCallback(() => {
-    getPedidos().then((res) => setPedidos(res.data || [])).catch(() => showToast('Error pedidos', 'error'));
-    getProductos().then((res) => setProductos(res.data || [])).catch(() => {});
+  // Carga paralela eficiente de datos
+  const cargarDatos = useCallback(async () => {
+    try {
+      const [resPedidos, resProductos] = await Promise.all([
+        getPedidos(),
+        getProductos()
+      ]);
+      setPedidos(resPedidos.data || []);
+      setProductos(resProductos.data || []);
+    } catch (err) {
+      showToast('Error al cargar la información del servidor', 'error');
+    } finally {
+      setLoading(false);
+    }
   }, [showToast]);
 
-  useEffect(() => { cargar(); }, [cargar]);
+  useEffect(() => {
+    cargarDatos();
+  }, [cargarDatos]);
 
-  const crear = async (data) => {
+  // Manejador genérico de acciones (Crear, ... )
+  const ejecutarAccion = async (promesa, msgExito, msgError) => {
     try {
-      await crearPedido(data);
-      showToast('Pedido creado');
-      cargar();
+      await promesa;
+      showToast(msgExito, 'success');
+      await cargarDatos();
     } catch (err) {
-      showToast(err.response?.data?.message || 'Error al crear pedido', 'error');
+      const errorMsg = err.response?.data?.message || msgError;
+      showToast(errorMsg, 'error');
     }
   };
 
-  const aprobar = async (id) => {
-    try {
-      await aprobarPedido(id);
-      showToast('Pedido aprobado');
-      cargar();
-    } catch (err) {
-      showToast(err.response?.data?.message || 'No se pudo aprobar', 'error');
-    }
-  };
+  const crear = (data) =>
+      ejecutarAccion(crearPedido(data), 'Pedido creado con éxito', 'Error al crear pedido');
 
-  const rechazar = async (id) => {
-    try {
-      await rechazarPedido(id);
-      showToast('Pedido rechazado');
-      cargar();
-    } catch (err) {
-      showToast(err.response?.data?.message || 'Error', 'error');
+  const aprobar = (id) =>
+      ejecutarAccion(aprobarPedido(id), 'Pedido aprobado con éxito', 'No se pudo aprobar el pedido');
+
+  const rechazar = (id) =>
+      ejecutarAccion(rechazarPedido(id), 'Pedido rechazado', 'No se pudo rechazar el pedido');
+
+  // 🚀 LA SOLUCIÓN RE REAL: Formateamos al vuelo solo para la vista de la tabla
+  // Mantenemos las IDs y los datos originales intactos, pero cambiamos la presentación de la fecha
+  const pedidosFormateados = pedidos.map((pedido) => {
+    let fechaLimpia = '---';
+    if (pedido.fecha) {
+      try {
+        fechaLimpia = new Date(pedido.fecha).toLocaleString('es-CL', {
+          dateStyle: 'short',
+          timeStyle: 'short',
+        });
+      } catch (e) {
+        fechaLimpia = pedido.fecha;
+      }
     }
-  };
+    return {
+      ...pedido,
+      fecha: fechaLimpia,
+    };
+  });
 
   return (
-    <div className="container">
-      <Toast />
-      <h1>Pedidos</h1>
-      <FormularioPedido productos={productos} onCrear={crear} />
-      <div className="card">
-        <TablaPedidos pedidos={pedidos} onAprobar={aprobar} onRechazar={rechazar} />
+      <div className="container py-4">
+        <Toast />
+        <h1 className="mb-4">Pedidos</h1>
+
+        <FormularioPedido productos={productos} onCrear={crear} />
+
+        <div className="card mt-4 shadow-sm">
+          {loading ? (
+              <div className="p-4 text-center">Cargando pedidos...</div>
+          ) : (
+              <TablaPedidos
+                  pedidos={pedidosFormateados} /* 🎯 Pasamos la data con las fechas ya arregladas aquí mismo */
+                  onAprobar={aprobar}
+                  onRechazar={rechazar}
+              />
+          )}
+        </div>
       </div>
-    </div>
   );
 }
